@@ -1,7 +1,7 @@
 import requests
 import csv
 import xlrd, xlwt
-import random
+import random, os
 import time
 import socket
 import http.client
@@ -48,6 +48,7 @@ def get_content(url):
     return rep.text
 
 
+# 获取天气数据
 def get_data(html):
     soup = BeautifulSoup(html,'html.parser')
     ul_tag = soup.find('ul',class_='t clearfix')
@@ -77,14 +78,14 @@ def get_data(html):
 
     return weathers_arr
 
-
+# 写成csv文件
 def write_data(data, name):
     file_name = name
     with open(file_name, 'a', errors='ignore', newline='') as f:
             f_csv = csv.writer(f)
             f_csv.writerows(data)
 
-
+# 设置表格字体
 def set_style(name,height,bold=False):
     style = xlwt.XFStyle()  # 初始化样式
 
@@ -102,7 +103,6 @@ def set_style(name,height,bold=False):
 
     style.font = font
     # style.borders = borders
-
     return style
 
 
@@ -114,9 +114,10 @@ def write_excel(data, name):
     # 第一行描述
     row0 = ['地区', '日期', '天气状况', '最高温', '最低温']
     # 第一列描述
-    column0 = ['苏州', '徐州', '淮安']
+    # column0 = ['苏州', '徐州', '淮安']
+    column0 = list(data.keys())
     # 七日
-    date = ['7日（今天）', '8日（明天）', '9日（后天）', '10日（周日）', '11日（周一）', '12日（周二）', '13日（周三）']
+    # date = ['7日（今天）', '8日（明天）', '9日（后天）', '10日（周日）', '11日（周一）', '12日（周二）', '13日（周三）']
 
     # 生成第一行
     for i in range(0, len(row0)):
@@ -125,25 +126,52 @@ def write_excel(data, name):
     # 生成第一列
     i, j = 1, 0
     while i < 7 * len(column0) and j < len(column0):
-        sheet1.write_merge(i, i + 3, 0, 0, column0[j], set_style('Arial', 220, True))  # 第一列
+        sheet1.write_merge(i, i + 6, 0, 0, column0[j], set_style('Arial', 220, True))  # 第一列
         # sheet1.write_merge(i, i + 3, 7, 7)  # 最后一列"合计"
         i += 7
         j += 1
 
     # sheet1.write_merge(21, 21, 0, 1, u'合计', set_style('Times New Roman', 220, True))
 
-    # 生成第二列
-    i = 0
-    while i < 7 * len(column0):
-        for j in range(0, len(date)):
-            sheet1.write(j + i + 1, 1, date[j])
-            i += 7
+    # # 生成第二列
+    # i = 0
+    # while i < 7 * len(column0):
+    #     for j in range(0, len(date)):
+    #         sheet1.write(j + i + 1, 1, date[j])
+    #     i += 7
+
+    # 存储字典--天气数据--关键是算清起始行数、列数与结束行数、列数
+    # 城市个数
+    city_num = len(column0)
+    range_num = 0
+    for w in data:
+        if range_num < city_num:
+            for t in range(1, len(data[w])+1):
+                for a in range(0, len(data[w][t-1])):
+                    # 每个城市的开始行数
+                    column2_num = t + (7*range_num)
+                    sheet1.write(column2_num, (a+1), data[w][t-1][a])
+            range_num += 1
+
+    # 删除旧文件
+    if os.path.exists('weather.xls'):
+        os.remove('weather.xls')
 
     excel.save(name)  # 保存文件
 
 if __name__ == '__main__':
-    url = 'http://www.weather.com.cn/weather/101190401.shtml'
-    html = get_content(url)
-    result = get_data(html)
+
+    # 七日天气报告
+    city_html = {
+        '苏州吴中区':'http://www.weather.com.cn/weather/101190405.shtml',
+        '徐州丰县':'http://www.weather.com.cn/weather/101190803.shtml',
+        '淮安洪泽':'http://www.weather.com.cn/weather/101190904.shtml'
+    }
+
+    city_weather = {}
+    for c in city_html:
+        html = get_content(city_html[c])
+        city_weather[c] = get_data(html)
     # write_data(result, 'weather.csv')
-    write_excel(result, 'weather.xlsx')
+    # write_excel(result, 'weather.xls')
+    write_excel(city_weather, 'weather.xls')
