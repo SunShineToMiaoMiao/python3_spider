@@ -12,6 +12,9 @@ from docx.oxml.ns import qn
 
 import keyword
 
+from common.network_request import request_html_by_urllib
+from common.file_operation import download_img, save_json_txt, create_dir
+
 
 '''
 保存搜索到的每一篇博客 
@@ -117,46 +120,6 @@ def get_ul_content(ul_tag, docx):
     return li_string
 
 
-# '创建目录'
-def create_dir():
-    dir = datetime.datetime.now().strftime('%Y%m%d%H%M')
-    path = os.path.join('doc', dir)
-    if os.path.exists(path):
-        # os.remove(path)
-        return path
-    else:
-        os.mkdir(path)
-        return path
-
-
-# '写入txt--str'
-def save_str_txt(data, file_path):
-    fp = open(file_path, 'w+', encoding='utf-8')
-    try:
-        fp.write(data)
-    finally:
-        fp.close()
-
-
-# '写入txt--JSON'
-def save_json_txt(list_name, file_path):
-    # 一定要加上ensure_ascii=False, 才能保存为汉字
-    data = json.dumps(list_name, ensure_ascii=False)
-    with open(file_path, 'w+', encoding='utf-8') as f:
-        f.write(data)
-
-
-# '根据img_url保存图片文件'
-def save_img_file(img_url, dir_path):
-    mirS = str(datetime.datetime.now().microsecond)
-    f_str = str(time.strftime('%H_%M_%S', time.localtime()) + '__' + mirS + '.png')
-    file_path = os.path.join(dir_path, f_str)
-    con = urllib.request.urlopen(img_url).read()
-    with open(file_path, 'wb') as f:
-        f.write(con)
-    return file_path
-
-
 # '保存为word文档'
 def save_docx(url):
     # 新建word文档
@@ -198,7 +161,7 @@ def save_docx(url):
                 if child.name == 'p':  # p标签
                     docx.add_paragraph(child.text)
 
-                # 判断是否有子节点
+                # 判断是否有直接子节点
                 child_tag = child.find_all(lambda x: x.name != '', recursive=False)
                 if len(child_tag) == 0:
                     if re.match('h[1-6]{1}', child.name):  # h1到h6标签
@@ -218,27 +181,13 @@ def save_docx(url):
                     # 图片
                     img_tag = child.find('img')
                     if img_tag:
-                        img_name = save_img_file(img_tag.attrs['src'], dir_path)
+                        img_name = download_img(img_tag.attrs['src'], dir_path)
                         docx.add_picture(img_name, width=Inches(6))
 
         # 保存文件
         docx_path = os.path.join(dir_path, title)
         docx.save(docx_path + '.docx')
         logging.info('已保存的word路径：%s' % docx_path + '.docx')
-
-
-# 根据查询条件返回HTML
-def request_html_by_query(url, **kwargs):
-    # user_agent = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.81 Safari/537.36'
-    # headers = {'User-Agent': user_agent}
-    data = urllib.parse.urlencode(kwargs)
-    api = url + '?' + data
-
-    logging.info('访问链接：%s' % api)
-
-    response_result = urllib.request.urlopen(api).read()
-    html = response_result.decode('utf-8')
-    return html
 
 
 # '获取搜索到的博客数组'
@@ -301,7 +250,7 @@ def save_blogs_by_one(blogs, num):
     logging.info('数据列表：%s' % blogs)
 
     # 保存搜索到的博客目录
-    save_json_txt(blogs, os.path.join('doc', 'blogs_directory'+'_'+ num +'.txt'))
+    save_json_txt(blogs, os.path.join('doc', 'blogs_directory'+'_'+ str(num) +'.txt'))
 
     for i in blogs:
         href = i['href']
@@ -321,7 +270,7 @@ if __name__ == '__main__':
     url = 'http://zzk.cnblogs.com/s/blogpost'
     search_str = 'python 爬虫'
     for i in range(1, 3):
-        html = request_html_by_query(url, Keywords=search_str,pageindex=i)
+        html = request_html_by_urllib(url, Keywords=search_str,pageindex=i)
         #  每页下载5个blog
         search_arr = get_search_arr(html, 5)
         # 每个blog保存为word

@@ -5,7 +5,9 @@ import random, os
 import time
 import socket
 import http.client
-# import urllib.request
+import urllib.request
+import urllib
+from urllib.error import URLError, HTTPError
 from bs4 import BeautifulSoup
 
 
@@ -44,6 +46,16 @@ def get_content(url):
         except http.client.IncompleteRead as e:
             print('6:', e)
             time.sleep(random.choice(range(5, 15)))
+
+        except HTTPError as e:
+            print('The server couldn\'t fulfill the request.')
+            print('Error code: ', e.code)
+        except URLError as e:
+            if hasattr(e, 'reason'):
+                print('We failed to reach a server.')
+                print('Reason: ', e.reason)
+            elif hasattr(e, 'code'):
+                print('The server couldn\'t fulfill the request.')
 
     return rep.text
 
