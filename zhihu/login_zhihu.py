@@ -111,6 +111,7 @@ def login(account, secret):
         print(login_code['msg'])
     # 保存 cookies 到文件，
     # 下次可以使用 cookie 直接登录，不需要输入账号和密码
+    # Cookie，指某些网站为了辨别用户身份、进行session跟踪而储存在用户本地终端上的数据（通常经过加密）
     session.cookies.save()
 
 

@@ -13,40 +13,8 @@ from docx.shared import Pt, RGBColor, Inches
 from docx.oxml.ns import qn
 import keyword
 
-
-# '根据img_url保存图片文件'
-def save_img_file(img_url, dir_path):
-    mirS = str(datetime.datetime.now().microsecond)
-    f_str = str(time.strftime('%H_%M_%S', time.localtime()) + '__' + mirS + '.png')
-    file_path = os.path.join(dir_path, f_str)
-    con = urllib.request.urlopen(img_url).read()
-    with open(file_path, 'wb') as f:
-        f.write(con)
-    return file_path
-
-# '写入txt--str'
-def save_str_txt(data, file_path):
-    fp = open(file_path, 'w+', encoding='utf-8')
-    try:
-        fp.write(data)
-    finally:
-        fp.close()
-
-    return file_path
-
-
-
-
-# '创建目录'
-def create_dir():
-    dir = datetime.datetime.now().strftime('%Y%m%d%H%M')
-    path = os.path.join('doc', dir)
-    if os.path.exists(path):
-        # os.remove(path)
-        return path
-    else:
-        os.mkdir(path)
-        return path
+from common.network_request import request_html_by_urllib
+from common.file_operation import download_img, save_json_txt, create_dir, save_str_txt
 
 def get_html(url):
 
@@ -102,7 +70,7 @@ def get_each_answers(answer, index, praise_num, author_name):
                 # 判断是否有figure标签，若存在则下载图片
                 if tag_name == 'figure':
                     img_url = t.find_all('img', class_='lazy')[0].attrs["data-actualsrc"]
-                    img_name = save_img_file(img_url, dir_path)
+                    img_name = download_img(img_url, dir_path)
                     logging.info('已保存第%s个回答的图片，路径为：%s' % (index, img_name))
                 elif re.match('br', tag_name):
                     each_str += '\n'
@@ -121,32 +89,20 @@ def get_each_answers(answer, index, praise_num, author_name):
     return each_str
 
 
-# 请求头部
-header = {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, sdch',
-        'Accept-Language': 'zh-CN,zh;q=0.8',
-        'Cache-Control': 'max-age=0',
-        'Connection': 'keep-alive',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.81 Safari/537.36',
-        'Host': 'www.zhihu.com'
-    }
-
 # 根据问题id获取回答的json数据
 def get_html_by_json(question_id):
 
     question_url = 'https://www.zhihu.com/question/'+ str(question_id)
     header2 = {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Connection': 'keep-alive',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.81 Safari/537.36',
+        # 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        # 'Connection': 'keep-alive',
+        # 'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.81 Safari/537.36',
         'authorization': 'Bearer Mi4xaGJSY0FnQUFBQUFBa0lLQk4yRE9DeGNBQUFCaEFsVk5QbkFYV3dDcDBjOHgzdWUwWTZxUXZJYVFzQlpRNDBqNTVR|1512710718|7035ad267faf29579aba4a3049d2992667ba7142',
         'Referer': question_url
     }
+    logging.info('访问的【知乎问答】链接：%s' % question_url)
 
     offset = 0
-
-    logging.info('访问的【知乎问答】链接：%s' % question_url)
     while(offset < 100):
         logging.info('下一个txt文件：%s' % offset)
 
@@ -155,8 +111,11 @@ def get_html_by_json(question_id):
               + str(question_id) + \
               '/answers?include=data%5B*%5D.is_normal%2Cadmin_closed_comment%2Creward_info%2Cis_collapsed%2Cannotation_action%2Cannotation_detail%2Ccollapse_reason%2Cis_sticky%2Ccollapsed_by%2Csuggest_edit%2Ccomment_count%2Ccan_comment%2Ccontent%2Ceditable_content%2Cvoteup_count%2Creshipment_settings%2Ccomment_permission%2Ccreated_time%2Cupdated_time%2Creview_info%2Cquestion%2Cexcerpt%2Crelationship.is_authorized%2Cis_author%2Cvoting%2Cis_thanked%2Cis_nothelp%2Cupvoted_followees%3Bdata%5B*%5D.mark_infos%5B*%5D.url%3Bdata%5B*%5D.author.follower_count%2Cbadge%5B%3F(type%3Dbest_answerer)%5D.topics' \
               '&offset='+str(offset)+'&limit=20&sort_by=default'
-        response_json = requests.get(api,headers=header2).json().get('data')
-
+        # requests方式
+        # response_json = requests.get(api, headers=header2).json().get('data')
+        # urllib方式
+        response_rs = request_html_by_urllib(api, self_headers=header2)
+        response_json = json.loads(response_rs)['data']
 
         data_page = 0
         try:
@@ -185,11 +144,6 @@ def get_html_by_json(question_id):
         offset = offset + 20
 
 
-
-
-
-
-
 if __name__ == '__main__':
     # login_zhihu('18896917562', 'wodeZH66')
 
@@ -203,8 +157,6 @@ if __name__ == '__main__':
         question_id = 30692237
         logging.info('【知乎】根据问题id：%s获取回答的json数据' % str(question_id))
         get_html_by_json(question_id)
-        # dir_path = create_dir()
-        # save_img_file('https://pic2.zhimg.com/50/v2-e96ad249b86046f785cd754f9fc33201_hd.jpg', dir_path)
 
     else:
         login('18896917562', 'wodeZH66')
